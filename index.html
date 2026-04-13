@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Queue Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-2: #232733;
+  --border: #2e3340;
+  --text: #e4e6ed;
+  --text-muted: #8b8fa3;
+  --accent: #4d8cff;
+  --accent-dim: rgba(77,140,255,0.12);
+  --green: #34d399;
+  --green-dim: rgba(52,211,153,0.12);
+  --amber: #fbbf24;
+  --amber-dim: rgba(251,191,36,0.12);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.12);
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34,211,238,0.12);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 16px;
+  min-height: 100vh;
+}
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.queue-name {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.queue-id {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--green);
+  background: var(--green-dim);
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+
+.stat-card:hover { border-color: var(--accent); }
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.red { color: var(--red); }
+.stat-value.accent { color: var(--accent); }
+.stat-value.cyan { color: var(--cyan); }
+
+.stat-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.calls-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.calls-table th {
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.calls-table td {
+  font-size: 13px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.calls-table tr:last-child td { border-bottom: none; }
+
+.calls-table tr {
+  transition: background 0.2s;
+}
+
+.calls-table tbody tr:hover {
+  background: rgba(77,140,255,0.04);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.status-pill.ringing {
+  color: var(--amber);
+  background: var(--amber-dim);
+}
+
+.status-pill.connected {
+  color: var(--green);
+  background: var(--green-dim);
+}
+
+.status-pill.hold {
+  color: var(--red);
+  background: var(--red-dim);
+}
+
+.status-pill.ivr {
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+
+.status-pill.queued {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.status-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-pill.ringing .status-dot { animation: pulse 1s ease-in-out infinite; }
+
+.ani {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.duration {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+}
+
+.agent-name {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.empty-row td {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 24px;
+}
+
+.footer-bar {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.refresh-info {
+  font-family: 'DM Mono', monospace;
+}
+</style>
+</head>
+<body>
+
+<div class="queue-header">
+  <div>
+    <div class="queue-name" id="queueName">Loading...</div>
+    <div class="queue-id" id="queueId"></div>
+  </div>
+  <div class="live-badge">
+    <span class="live-dot"></span>
+    Live
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">In queue</div>
+    <div class="stat-value accent" id="inQueue">0</div>
+    <div class="stat-sub">waiting</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Connected</div>
+    <div class="stat-value green" id="connected">0</div>
+    <div class="stat-sub">active calls</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg wait</div>
+    <div class="stat-value amber" id="avgWait">0:00</div>
+    <div class="stat-sub">minutes</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Available</div>
+    <div class="stat-value cyan" id="available">0</div>
+    <div class="stat-sub">agents</div>
+  </div>
+</div>
+
+<div class="section-title">Active interactions</div>
+<table class="calls-table">
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th>ANI</th>
+      <th>Agent</th>
+      <th>Duration</th>
+      <th>Priority</th>
+    </tr>
+  </thead>
+  <tbody id="callsBody">
+  </tbody>
+</table>
+
+<div class="footer-bar">
+  <span>Last updated: <span id="lastUpdate">--</span></span>
+  <span class="refresh-info">Refresh: 5s</span>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const queueName = params.get('name') || 'DPU Tier 1';
+const queueId = params.get('id') || '33e4ce7d-22c3-41e7-92d3-016193e5b530';
+const seed = params.get('seed') || '1';
+
+document.getElementById('queueName').textContent = queueName;
+document.getElementById('queueId').textContent = queueId;
+
+const agents = [
+  'Maria Santos', 'James Wright', 'Priya Patel', 'David Kim',
+  'Sarah Johnson', 'Carlos Rivera', 'Aisha Mohammed', 'Tyler Chen',
+  'Rachel Green', 'Marcus Thompson', 'Nina Kowalski', 'Derek Hayes',
+  'Fatima Al-Rashid', 'Kevin O\'Brien', 'Lisa Chang'
+];
+
+const statuses = ['connected', 'connected', 'connected', 'ringing', 'hold', 'ivr', 'queued'];
+const statusLabels = {
+  connected: 'Connected',
+  ringing: 'Ringing',
+  hold: 'On hold',
+  ivr: 'In IVR',
+  queued: 'Queued'
+};
+
+const priorities = ['P1', 'P2', 'P2', 'P3', 'P3', 'P3', 'P4'];
+
+function seededRandom(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  }
+  return function() {
+    h = (h * 16807 + 0) % 2147483647;
+    return (h & 0x7fffffff) / 0x7fffffff;
+  };
+}
+
+function generateANI(rng) {
+  const area = [213, 310, 415, 512, 602, 718, 832, 847, 914, 972];
+  const a = area[Math.floor(rng() * area.length)];
+  const b = String(Math.floor(rng() * 900 + 100));
+  const c = String(Math.floor(rng() * 9000 + 1000));
+  return `+1 (${a}) ${b}-${c}`;
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function generateState() {
+  const now = Date.now();
+  const cycle = Math.floor(now / 5000);
+  const rng = seededRandom(seed + '-' + cycle);
+
+  const numCalls = Math.floor(rng() * 5) + 2;
+  const calls = [];
+  const usedAgents = new Set();
+
+  for (let i = 0; i < numCalls; i++) {
+    const status = statuses[Math.floor(rng() * statuses.length)];
+    let agent = '--';
+    if (status === 'connected' || status === 'hold') {
+      let a;
+      do { a = agents[Math.floor(rng() * agents.length)]; } while (usedAgents.has(a));
+      usedAgents.add(a);
+      agent = a;
+    } else if (status === 'ringing') {
+      let a;
+      do { a = agents[Math.floor(rng() * agents.length)]; } while (usedAgents.has(a));
+      usedAgents.add(a);
+      agent = a;
+    }
+
+    const baseDur = status === 'connected' ? 45 + Math.floor(rng() * 420)
+                  : status === 'hold' ? 10 + Math.floor(rng() * 120)
+                  : status === 'ringing' ? 3 + Math.floor(rng() * 18)
+                  : status === 'ivr' ? 15 + Math.floor(rng() * 90)
+                  : 5 + Math.floor(rng() * 60);
+
+    const elapsed = Math.floor((now % 5000) / 1000);
+    const duration = baseDur + elapsed;
+
+    calls.push({
+      status,
+      ani: generateANI(rng),
+      agent,
+      duration,
+      priority: priorities[Math.floor(rng() * priorities.length)]
+    });
+  }
+
+  calls.sort((a, b) => {
+    const order = { ringing: 0, queued: 1, ivr: 2, connected: 3, hold: 4 };
+    return order[a.status] - order[b.status];
+  });
+
+  const inQueue = calls.filter(c => c.status === 'queued' || c.status === 'ivr').length;
+  const connectedCount = calls.filter(c => c.status === 'connected' || c.status === 'hold').length;
+  const totalAvailable = Math.floor(rng() * 4) + 1;
+  const waitTimes = calls.filter(c => c.status === 'queued').map(c => c.duration);
+  const avgWait = waitTimes.length > 0
+    ? Math.floor(waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length)
+    : 0;
+
+  return { calls, inQueue, connected: connectedCount, avgWait, available: totalAvailable };
+}
+
+function render() {
+  const state = generateState();
+
+  document.getElementById('inQueue').textContent = state.inQueue;
+  document.getElementById('connected').textContent = state.connected;
+  document.getElementById('avgWait').textContent = formatDuration(state.avgWait);
+  document.getElementById('available').textContent = state.available;
+
+  const avgWaitEl = document.getElementById('avgWait');
+  avgWaitEl.className = 'stat-value ' + (state.avgWait > 120 ? 'red' : state.avgWait > 45 ? 'amber' : 'green');
+
+  const tbody = document.getElementById('callsBody');
+  tbody.innerHTML = '';
+
+  if (state.calls.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No active interactions</td></tr>';
+  } else {
+    state.calls.forEach(call => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="status-pill ${call.status}"><span class="status-dot"></span>${statusLabels[call.status]}</span></td>
+        <td class="ani">${call.ani}</td>
+        <td class="agent-name">${call.agent}</td>
+        <td class="duration">${formatDuration(call.duration)}</td>
+        <td><span style="font-size:11px;font-weight:500;color:${call.priority === 'P1' ? 'var(--red)' : call.priority === 'P2' ? 'var(--amber)' : 'var(--text-muted)'}">${call.priority}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  const now = new Date();
+  document.getElementById('lastUpdate').textContent =
+    now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+render();
+setInterval(render, 1000);
+</script>
+</body>
+</html>
