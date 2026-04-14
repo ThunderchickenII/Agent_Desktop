@@ -176,12 +176,38 @@ function setTheme(t) {
 }
 setTheme(initTheme);
 
+/* ---- Mulberry32 PRNG: much better distribution than the old LCG ---- */
+function xmur3(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return (h ^= h >>> 16) >>> 0;
+  };
+}
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeRng(seedStr) {
+  const hashFn = xmur3(seedStr);
+  return mulberry32(hashFn());
+}
+
 const agents=['Maria Santos','James Wright','Priya Patel','David Kim','Sarah Johnson','Carlos Rivera','Aisha Mohammed','Tyler Chen','Rachel Green','Marcus Thompson','Nina Kowalski','Derek Hayes','Fatima Al-Rashid',"Kevin O'Brien",'Lisa Chang'];
 const statuses=['connected','connected','connected','ringing','hold','ivr','queued'];
 const statusLabels={connected:'Connected',ringing:'Ringing',hold:'On hold',ivr:'In IVR',queued:'Queued'};
 const priorities=['P1','P2','P2','P3','P3','P3','P4'];
-
-function seededRandom(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h+s.charCodeAt(i))|0;return function(){h=(h*16807+0)%2147483647;return(h&0x7fffffff)/0x7fffffff;};}
 
 function generateANI(rng){
   const area=[213,310,415,512,602,718,832,847,914,972];
@@ -191,12 +217,15 @@ function generateANI(rng){
 function formatDuration(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 
 function generateState(){
-  const now=Date.now(),cycle=Math.floor(now/5000),rng=seededRandom(seed+'-'+cycle);
+  const now=Date.now(),cycle=Math.floor(now/5000);
+  /* Use queue ID + seed + cycle for a truly unique seed per pane per cycle */
+  const rng = makeRng(queueId + '|' + seed + '|' + cycle);
+
   const numCalls=Math.floor(rng()*5)+2,calls=[];const usedA=new Set();
   for(let i=0;i<numCalls;i++){
     const status=statuses[Math.floor(rng()*statuses.length)];
     let agent='--';
-    if(status==='connected'||status==='hold'||status==='ringing'){let a;do{a=agents[Math.floor(rng()*agents.length)];}while(usedA.has(a));usedA.add(a);agent=a;}
+    if(status==='connected'||status==='hold'||status==='ringing'){let a;do{a=agents[Math.floor(rng()*agents.length)];}while(usedA.has(a)&&usedA.size<agents.length);usedA.add(a);agent=a;}
     const baseDur=status==='connected'?45+Math.floor(rng()*420):status==='hold'?10+Math.floor(rng()*120):status==='ringing'?3+Math.floor(rng()*18):status==='ivr'?15+Math.floor(rng()*90):5+Math.floor(rng()*60);
     const elapsed=Math.floor((now%5000)/1000);
     calls.push({status,ani:generateANI(rng),agent,duration:baseDur+elapsed,priority:priorities[Math.floor(rng()*priorities.length)]});
